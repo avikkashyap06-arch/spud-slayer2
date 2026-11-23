@@ -78,7 +78,8 @@ func _award_armor() -> void:
 	var hell: bool = bool(Lore.boss(boss_index)["hell"])
 	var piece: String = (ARMOR_SLOTS_HELL if hell else ARMOR_SLOTS_HEAVEN)[slot]
 	armor_tiers[slot] = mini(ARMOR_MAX_TIER, int(armor_tiers[slot]) + 1)
-	var short_name: String = String(Lore.boss(boss_index)["name"]).split(",")[0]
+	var parts := String(Lore.boss(boss_index)["name"]).split(",")
+	var short_name: String = parts[0]
 	drop_note = "ARMOUR DROP: %s's %s  (Tier %d)" % [short_name, piece, int(armor_tiers[slot])]
 
 var pro_hits := 0
@@ -451,7 +452,6 @@ func _theme_for(i: int) -> void:
 		_theme = "sanctuary"; _depth = 0.0
 	else:
 		_theme = "throne"; _depth = 0.0
-
 func begin_intro() -> void:
 	if (boss_index == 25 or boss_index == 50) and not cine_seen.has(boss_index):
 		cine_seen[boss_index] = true
@@ -592,6 +592,28 @@ func _begin_ending() -> void:
 func play_cine(id: String, cb: Callable, title: String = "", key: String = "") -> void:
 	fade = 0.0
 	white_flash = 0.0
+	cine.start(id, cb, title, key)
+	_set_state(S.CINE)
+
+func _s_cine(dt: float) -> void:
+	fade = 0.0
+	cine.tick(dt, _accept(), Input.is_action_just_pressed("ui_cancel"))
+
+func _begin_ending_real() -> void:
+	clear_all_hazards()
+	player.locked = true
+	player.iframes = 99.0
+	ending_theme_set = false
+	fade = 0.0
+	player.position = Vector2(Cfg.W * 0.5, Cfg.FLOOR)
+	player.vel = Vector2.ZERO
+	player.modulate.a = 1.0
+	_clear_boss()
+	arena.set_theme("throne", 0.0, 0, false)
+	white_flash = 1.0
+	sfx.play("boom")
+	_set_state(S.ENDING)
+
 # --------------------------------------------------------------- frame loop
 func _unhandled_input(ev: InputEvent) -> void:
 	if ev is InputEventKey and ev.pressed and not ev.echo:
@@ -733,7 +755,6 @@ func _s_card() -> void:
 	fade = 0.0
 	if (st_t > 1.5 and _accept()) or st_t >= card_dur:
 		_end_card()
-
 # --- shrine
 func _s_shrine(dt: float) -> void:
 	player.tick(dt)
@@ -1103,42 +1124,3 @@ func _at_tick(dt: float) -> void:
 				player.visible = true
 				battle.end_battle()
 				on_player_dead()
-			if not battle.active and boss != null and boss.prologue:
-				_at_fight_bot(false)
-			if _at_boss_t > 240.0:
-				at_log.append("TIMEOUT boss %d" % boss_index)
-				boss.take_damage(1e9)
-		S.DEAD:
-			if st_t > 1.5:
-				_at_press("ui_accept")
-		S.ENDING:
-			if st_t > 17.5:
-				print("AUTOTEST_OK reached ending. deaths=%d time=%s log=%s" % [deaths, fmt_time(play_time), str(at_log)])
-				get_tree().quit()
-	if state != _at_step:
-		_at_step = state
-		_at_boss_t = 0.0
-		if not _at_state_seen.has(state):
-			_at_state_seen[state] = true
-		if state == S.INTRO:
-			print("autotest: boss %d %s" % [boss_index, Lore.boss(boss_index)["name"]])
-	step(dt)
-
-func _at_fight_bot(pro: bool) -> void:
-	var b = boss
-	if b == null:
-		return
-	var dx: float = b.position.x - player.position.x
-	var want := 120.0 if not pro else 150.0
-	Input.action_release("move_left"); Input.action_release("move_right")
-	if absf(dx) > want:
-		Input.action_press("move_right" if dx > 0 else "move_left")
-	elif absf(dx) < want - 70.0:
-		Input.action_press("move_left" if dx > 0 else "move_right")
-	if int(at_timer * 2.0) % 3 == 0:
-		Input.action_press("jump")
-	Input.action_press("attack")
-	if not pro:
-		Input.action_press("rune%d" % (1 + int(at_timer * 3.0) % 4))
-		if int(at_timer * 1.3) % 5 == 0:
-			Input.action_press("roll")
