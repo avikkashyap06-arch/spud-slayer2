@@ -36,7 +36,7 @@ jobs:
         run: |
           python3 -m http.server 8080 -d build/web &
           sleep 2
-          google-chrome --headless --no-sandbox --disable-gpu --enable-logging=stderr --v=1 --virtual-time-budget=5000 --screenshot=web_preview.png http://localhost:8080/index.html 2>&1 | grep -iE "CONSOLE|ERROR|Godot|WebGL|SharedArrayBuffer|exception|failed" || true
+          google-chrome --headless --no-sandbox --enable-unsafe-swiftshader --enable-logging=stderr --v=1 --virtual-time-budget=8000 --screenshot=web_preview.png http://localhost:8080/index.html 2>&1 | grep -iE "CONSOLE|Godot|USER ERROR|SCRIPT ERROR|WebGL|exception" || true
 
       - name: Upload Web Screenshot
         if: always()
