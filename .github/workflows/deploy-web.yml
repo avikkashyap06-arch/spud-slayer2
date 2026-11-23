@@ -27,8 +27,10 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Patch Web Viewport and Check Scripts
+      - name: Move Root Scripts and Check All Files
         run: |
+          mkdir -p scripts
+          mv -f *.gd scripts/ 2>/dev/null || true
           ls -la scripts/
           python3 -c '
           p = "scripts/main.gd"
