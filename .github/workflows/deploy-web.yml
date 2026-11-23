@@ -20,19 +20,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Godot 4.3
+      - name: Setup Godot 4.3 with Export Templates
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.3.0
           use-dotnet: false
-
-      - name: Install Godot 4.3 Export Templates
-        run: |
-          mkdir -p ~/.local/share/godot/export_templates/4.3.stable
-          curl -L -o templates.tpz https://github.com
-          unzip -q templates.tpz -d temp_templates
-          mv temp_templates/templates/* ~/.local/share/godot/export_templates/4.3.stable/
-          rm -rf templates.tpz temp_templates
+          include-templates: true
 
       - name: Export Godot Web Build
         run: |
