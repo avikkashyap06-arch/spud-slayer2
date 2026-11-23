@@ -45,6 +45,7 @@ jobs:
           s = s.replace("for bi in:", f"for bi in {L}1, 4, 13, 20, 25, 28, 31, 37, 42, 46, 50{R}:")
           s = s.replace("for ph in:", f"for ph in {L}1, 2{R}:")
           s = s.replace("tr.material = sm", "if not OS.has_feature(\"web\"): tr.material = sm")
+          s = s.replace("add_child(tr)", "tr.visible = not OS.has_feature(\"web\"); add_child(tr)")
           s = s.replace("world = Node2D.new(); svp.add_child(world)", "world = Node2D.new(); (self if OS.has_feature(\"web\") else svp).add_child(world)")
           open(p, "w").write(s)
           '
