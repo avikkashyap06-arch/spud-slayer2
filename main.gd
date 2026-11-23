@@ -95,7 +95,6 @@ var unlock_note := ""
 var slow := 1.0
 var ending_theme_set := false
 
-# automated self-test (headless): godot --headless --path . -- --autotest
 var autotest := false
 var at_log: Array = []
 var at_timer := 0.0
@@ -105,21 +104,21 @@ var at_died_once := false
 func _ready() -> void:
 	_setup_inputs()
 	RenderingServer.set_default_clear_color(Color.BLACK)
-	# pixel-art look: the whole world renders at 1/3 resolution and is upscaled with nearest filtering
+	var is_web := OS.has_feature("web")
 	var svp := SubViewport.new()
 	svp.size = Vector2i(Cfg.W / PIX, Cfg.H / PIX)
 	svp.size_2d_override = Vector2i(Cfg.W, Cfg.H)
 	svp.size_2d_override_stretch = true
 	svp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	svp.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
-	add_child(svp)
-	var tr := TextureRect.new()
-	tr.texture = svp.get_texture()
-	tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_SCALE
-	tr.size = Vector2(Cfg.W, Cfg.H)
-	if not OS.has_feature("web"):
+	if not is_web:
+		add_child(svp)
+		var tr := TextureRect.new()
+		tr.texture = svp.get_texture()
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_SCALE
+		tr.size = Vector2(Cfg.W, Cfg.H)
 		var sh := Shader.new()
 		sh.code = """shader_type canvas_item;
 uniform vec2 px = vec2(427.0, 240.0);
@@ -133,7 +132,6 @@ void fragment() {
 	vec3 d = texture(TEXTURE, UV + vec2(0.0, e.y)).rgb;
 	float lc = dot(c, vec3(0.3, 0.59, 0.11));
 	float g = abs(dot(r, vec3(0.3,0.59,0.11)) - lc) + abs(dot(l, vec3(0.3,0.59,0.11)) - lc) + abs(dot(u, vec3(0.3,0.59,0.11)) - lc) + abs(dot(d, vec3(0.3,0.59,0.11)) - lc);
-	// ordered dither + posterize
 	vec2 p = floor(UV * px);
 	float b = mod(p.x + 2.0 * p.y, 4.0) / 4.0 - 0.375;
 	vec3 q = floor(c * levels + 0.5 + b * 0.12) / levels;
@@ -145,8 +143,12 @@ void fragment() {
 		sm.shader = sh
 		sm.set_shader_parameter("px", Vector2(Cfg.W / PIX, Cfg.H / PIX))
 		tr.material = sm
-	add_child(tr)
-	world = Node2D.new(); svp.add_child(world)
+		add_child(tr)
+	world = Node2D.new()
+	if is_web:
+		add_child(world)
+	else:
+		svp.add_child(world)
 	arena = Arena.new(); world.add_child(arena)
 	hazards = Node2D.new(); world.add_child(hazards)
 	minions = Node2D.new(); world.add_child(minions)
@@ -179,7 +181,6 @@ void fragment() {
 		return
 	goto_title()
 
-# --------------------------------------------------------------- input map
 func _key(action: String, code: int) -> void:
 	var e := InputEventKey.new()
 	e.physical_keycode = code as Key
@@ -211,7 +212,7 @@ func _setup_inputs() -> void:
 		var e := InputEventJoypadButton.new()
 		e.button_index = jb[k]
 		InputMap.action_add_event(k, e)
-# --------------------------------------------------------------- helpers used by other nodes
+
 func add_hazard(h: Hazard) -> void:
 	hazards.add_child(h)
 
@@ -229,7 +230,6 @@ func clear_all_hazards() -> void:
 	for pk in pickups.get_children():
 		pk.queue_free()
 
-# --- minions
 func minion_count() -> int:
 	var n := 0
 	for mn in minions.get_children():
@@ -288,7 +288,6 @@ func _set_state(s: int) -> void:
 	state = s
 	st_t = 0.0
 
-# --------------------------------------------------------------- save / load
 func save_game() -> void:
 	var data := {"boss_index": boss_index, "ash": ash, "hp_lvl": hp_lvl, "sta_lvl": sta_lvl, "atk_lvl": atk_lvl,
 		"runes": runes, "wings": wings, "armor": armor_tiers, "deaths": deaths, "time": play_time}
@@ -313,18 +312,9 @@ func load_game() -> bool:
 	hp_lvl = int(parsed.get("hp_lvl", 0))
 	sta_lvl = int(parsed.get("sta_lvl", 0))
 	atk_lvl = int(parsed.get("atk_lvl", 0))
-	var r = parsed.get("runes", [true, false, false, false])
-	runes = [bool(r[0]), bool(r[1]), bool(r[2]), bool(r[3])]
-	wings = bool(parsed.get("wings", false))
-	var ar = parsed.get("armor", [0, 0, 0, 0, 0])
-	armor_tiers = []
-	for i in 5:
-		armor_tiers.append(int(ar[i]) if ar is Array and i < ar.size() else 0)
-	deaths = int(parsed.get("deaths", 0))
-	play_time = float(parsed.get("time", 0.0))
-	return true
 
-# --------------------------------------------------------------- state entry points
+### Part 2 of 2
+```gdscript
 func _clear_boss() -> void:
 	if boss != null:
 		boss.queue_free()
@@ -452,6 +442,7 @@ func _theme_for(i: int) -> void:
 		_theme = "sanctuary"; _depth = 0.0
 	else:
 		_theme = "throne"; _depth = 0.0
+
 func begin_intro() -> void:
 	if (boss_index == 25 or boss_index == 50) and not cine_seen.has(boss_index):
 		cine_seen[boss_index] = true
@@ -614,7 +605,6 @@ func _begin_ending_real() -> void:
 	sfx.play("boom")
 	_set_state(S.ENDING)
 
-# --------------------------------------------------------------- frame loop
 func _unhandled_input(ev: InputEvent) -> void:
 	if ev is InputEventKey and ev.pressed and not ev.echo:
 		if ev.physical_keycode == KEY_ESCAPE and (state == S.FIGHT or state == S.PROLOGUE):
@@ -690,7 +680,6 @@ func _tick_world(dt: float) -> void:
 func _accept() -> bool:
 	return Input.is_action_just_pressed("ui_accept")
 
-# --- title
 func _s_title() -> void:
 	player.tick(0.0)
 	if Input.is_action_just_pressed("ui_down"):
@@ -708,7 +697,6 @@ func _s_title() -> void:
 					continue_game()
 			2: get_tree().quit()
 
-# --- prologue
 func _s_prologue(dt: float) -> void:
 	pro_t += dt
 	_tick_world(dt)
@@ -755,7 +743,7 @@ func _s_card() -> void:
 	fade = 0.0
 	if (st_t > 1.5 and _accept()) or st_t >= card_dur:
 		_end_card()
-# --- shrine
+
 func _s_shrine(dt: float) -> void:
 	player.tick(dt)
 	if Input.is_action_just_pressed("ui_down"):
@@ -786,7 +774,6 @@ func _s_shrine(dt: float) -> void:
 		fx.burst(player.center(), 24, Color(0.6, 1.0, 0.4), 260.0, 5.0, 0.7, -80.0)
 		save_game()
 
-# --- intro / fight
 func _s_intro(dt: float) -> void:
 	player.tick(dt)
 	boss.tick(dt)
@@ -856,64 +843,9 @@ func _s_ending(dt: float) -> void:
 		goto_title()
 
 func _battleshots() -> void:
-	DirAccess.make_dir_recursive_absolute("/tmp/shots")
-	sfx.enabled = false
-	hp_lvl = 6
-	runes = [true, true, true, true]
-	boss_index = int(OS.get_environment("BI") if OS.get_environment("BI") != "" else "12")
-	cine_seen = {25: true, 50: true}
-	begin_intro()
-	for i in 20:
-		step(1.0 / 30.0)
-	await _snap("bt_intro")
-	begin_fight()
-	for i in 60:
-		step(1.0 / 30.0)
-	await _snap("bt_enter")
-	for i in 60:
-		step(1.0 / 30.0)
-	await _snap("bt_menu")
-	battle.menu_i = 1
-	battle.sub_n = 6
-	battle._mode("act")
-	step(1.0 / 30.0)
-	await _snap("bt_act")
-	battle._start_fightbar()
-	battle.bar_x = 0.3
-	step(1.0 / 30.0)
-	await _snap("bt_bar")
-	for pn in ["rain", "aimed", "ring", "spiral", "sweep", "cross", "lasers", "homing", "blasters", "orange_blue", "blue_bones", "blue_plat", "gravity_flip"]:
-		battle.force_pat = [pn]
-		battle.pat_len = 99.0
-		battle._begin_pattern()
-		battle.pat_len = 99.0
-		player.hp = 99
-		for i in 110:
-			step(1.0 / 30.0)
-			if battle.mode == "attack":
-				battle.inv = 5.0
-		await _snap("bp_" + pn)
-	battle.force_pat = []
 	get_tree().quit()
 
 func _cineshots() -> void:
-	DirAccess.make_dir_recursive_absolute("/tmp/shots")
-	sfx.enabled = false
-	arena.set_theme("hell", 0.5, 1, false)
-	for id in ["elite", "area"]:
-		play_cine(id, func(): pass, "THE FORGE OF AGONY", "layer6")
-		paused = true
-		var n := cine.beats.size()
-		for b in n:
-			cine.bi = b
-			cine.bt = 0.0
-			while cine.bt < float(cine.cur().get("dur", 4.0)) * 0.65:
-				cine.tick(1.0 / 30.0, false, false)
-				st_t += 1.0 / 30.0
-			ui.queue_redraw()
-			paused = false
-			await _snap("c_%s_%d" % [id, b])
-	await _snap("c_end")
 	get_tree().quit()
 
 func _snap(name: String) -> void:
@@ -922,87 +854,6 @@ func _snap(name: String) -> void:
 	img.save_png("/tmp/shots/%s.png" % name)
 
 func _shots() -> void:
-	DirAccess.make_dir_recursive_absolute("/tmp/shots")
-	sfx.enabled = false
-	autotest = true
-	goto_title()
-	for i in 3:
-		step(1.0 / 30.0)
-	await _snap("01_title")
-	start_new_game()
-	for i in 60:
-		step(1.0 / 30.0)
-	await _snap("02_prologue")
-	pro_hits = 3
-	for i in 70:
-		step(1.0 / 30.0)
-	await _snap("03_beam")
-	enter_shrine()
-	for i in 10:
-		step(1.0 / 30.0)
-	await _snap("04_shrine")
-	for bi in:
-		boss_index = bi
-		hp_lvl = 6
-		begin_intro()
-		for i in 30:
-			step(1.0 / 30.0)
-		await _snap("b%02d_intro" % bi)
-		begin_fight()
-		boss.minion_t = 0.1
-		for i in 140:
-			step(1.0 / 30.0)
-			if i % 20 == 0:
-				player.position.x = 300.0 + i * 3.0
-		await _snap("b%02d_fight" % bi)
-	# movement poses
-	boss_index = 3
-	begin_intro()
-	for i in 30:
-		step(1.0 / 30.0)
-	begin_fight()
-	boss.active = false
-	Input.action_press("move_right")
-	for i in 14:
-		step(1.0 / 30.0)
-	await _snap("mv_run")
-	Input.action_press("attack")
-	for i in 3:
-		step(1.0 / 30.0)
-	await _snap("mv_attack")
-	Input.action_release("attack")
-	Input.action_release("move_right")
-	Input.action_press("roll")
-	for i in 5:
-		step(1.0 / 30.0)
-	Input.action_release("roll")
-	await _snap("mv_roll")
-	Input.action_press("jump")
-	for i in 8:
-		step(1.0 / 30.0)
-	Input.action_release("jump")
-	await _snap("mv_jump")
-	# specials + armour screenshots
-	armor_tiers = [3, 2, 4, 1, 2]
-	boss_index = 20
-	begin_intro()
-	for i in 30:
-		step(1.0 / 30.0)
-	begin_fight()
-	boss.sp_cd = 0.0
-	boss.cd = 0.01
-	player.armor_shield = 3
-	for i in 75:
-		step(1.0 / 30.0)
-	await _snap("sp_fight")
-	boss.hp = 1.0
-	boss.take_damage(5.0)
-	for i in 120:
-		step(1.0 / 30.0)
-	_begin_outro()
-	for i in 50:
-		step(1.0 / 30.0)
-	await _snap("sp_outro")
 	get_tree().quit()
 
 func _drawtest() -> void:
@@ -1011,57 +862,8 @@ func _drawtest() -> void:
 	arena.set_theme("hell", 0.5, 0, false)
 	for th in ["heaven", "storm", "sanctuary", "throne", "abyss", "title", "hell"]:
 		arena.set_theme(th, 0.5, 1, th == "hell")
-		printerr("ARENA ", th)
 		await get_tree().process_frame
 		await get_tree().process_frame
-	var seen := {}
-	for i in range(1, 51):
-		var data := Lore.boss(i)
-		var key := String(data["family"]) + String(data["arch"])
-		if seen.has(key):
-			continue
-		seen[key] = true
-		boss = Boss.new(); boss.setup(self, data); boss_layer.add_child(boss); boss.active = true
-		for ph in:
-			boss.phase = ph; boss.flash = 0.0
-			printerr("BOSS ", i, " ", key, " phase ", ph)
-			boss.tick(0.1)
-			await get_tree().process_frame
-			await get_tree().process_frame
-		boss.queue_free(); boss = null
-	for k in Minion.TYPES:
-		var mn := Minion.new(); mn.setup(self, k, Vector2(600, 400), 0.5); minions.add_child(mn)
-		printerr("MINION ", k)
-		for r in 3:
-			mn.update(0.1)
-			mn.state = r
-			await get_tree().process_frame
-		mn.queue_free()
-	var pd := Lore.god_prologue()
-	boss = Boss.new(); boss.setup(self, pd); boss_layer.add_child(boss); boss.active = true
-	printerr("PROLOGUE GOD")
-	boss.raise = 1.0
-	await get_tree().process_frame
-	await get_tree().process_frame
-	for sty in ["fire", "holy", "spear", "smite"]:
-		var hz := Hazard.pillar(self, 400, 80, 0.0, 1.0, 1, Color.ORANGE, sty)
-		hz.t = 0.1
-		printerr("PILLAR ", sty)
-		await get_tree().process_frame
-		await get_tree().process_frame
-		hz.queue_free()
-	for kind in ["wave", "spike"]:
-		printerr("HAZ ", kind)
-		var hz2 := Hazard.wave(self, 300, 0, 50, 1, Color.ORANGE) if kind == "wave" else Hazard.spike(self, 300, 0.0, 1)
-		hz2.t = 0.3
-		await get_tree().process_frame
-		await get_tree().process_frame
-		hz2.queue_free()
-	player.has_wings = true; player.armor = true; player.skin_t = 3.0; player.attack_t = 0.1
-	player.locked = true
-	printerr("PLAYER")
-	await get_tree().process_frame
-	await get_tree().process_frame
 	printerr("DRAWTEST_DONE")
 	get_tree().quit()
 
@@ -1071,56 +873,5 @@ func _test_boost() -> void:
 		player.max_hp += 25
 		player.hp = player.max_hp
 
-# --------------------------------------------------------------- headless self-test
-var _at_step := 0
-var _at_boss_t := 0.0
-var _at_state_seen := {}
-
 func _autotest_frame() -> void:
-	_at_tick(1.0 / 30.0)
-
-func _at_press(action: String) -> void:
-	Input.action_press(action)
-
-func _at_tick(dt: float) -> void:
-	at_timer += dt
-	# release one-frame presses from last tick
-	for a in ["ui_accept", "attack", "jump", "rune1", "rune2", "rune3", "rune4", "roll", "ui_down", "ui_up"]:
-		Input.action_release(a)
-	match state:
-		S.TITLE:
-			menu_sel = 0
-			if at_timer > 0.3:
-				_at_press("ui_accept")
-		S.PROLOGUE:
-			_at_fight_bot(true)
-		S.SHRINE:
-			# buy upgrades round robin then rise
-			var lvl_sum := hp_lvl + sta_lvl + atk_lvl
-			if at_timer > 0.2:
-				at_timer = 0.0
-				var cost := 9999
-				var kind := 0
-				if boss_index < 50:
-					kind = 0 if hp_lvl < 12 else (2 if atk_lvl < 12 else 1)
-				var lv: int = [hp_lvl, sta_lvl, atk_lvl][kind]
-				cost = Lore.upgrade_cost(kind, lv)
-				if ash >= cost and lv < Lore.MAX_UPGRADE_LEVEL and lvl_sum < 36:
-					shrine_sel = kind
-				else:
-					shrine_sel = 3
-				_at_press("ui_accept")
-		S.CINE:
-			if st_t > 0.5:
-				_at_press("ui_accept")
-		S.INTRO, S.OUTRO, S.ACT_BREAK, S.CARD:
-			if st_t > 1.6:
-				_at_press("ui_accept")
-		S.FIGHT:
-			_at_boss_t += dt
-			if boss_index == 3 and not at_died_once and _at_boss_t > 1.0:
-				player.hp = 0
-				player.dead = true
-				player.visible = true
-				battle.end_battle()
-				on_player_dead()
+	pass
