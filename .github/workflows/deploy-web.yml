@@ -27,10 +27,9 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Move Root Scripts to scripts/ and Patch for Web
+      - name: Patch Web Viewport and Check Scripts
         run: |
-          mkdir -p scripts
-          mv -f *.gd scripts/ 2>/dev/null || true
+          ls -la scripts/
           python3 -c '
           p = "scripts/main.gd"
           s = open(p).read()
@@ -39,6 +38,7 @@ jobs:
           s = s.replace("world = Node2D.new(); svp.add_child(world)", "world = Node2D.new(); (self if OS.has_feature(\"web\") else svp).add_child(world)")
           open(p, "w").write(s)
           '
+          godot --headless --path . --quit-after 2 2>&1
 
       - name: Export Godot Web Build
         run: |
