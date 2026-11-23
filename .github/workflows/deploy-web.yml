@@ -27,20 +27,19 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Move Root Scripts and Check All Files
+      - name: Move Root Scripts and Patch Web Rendering
         run: |
           mkdir -p scripts
           mv -f *.gd scripts/ 2>/dev/null || true
-          ls -la scripts/
           python3 -c '
+          import re
           p = "scripts/main.gd"
           s = open(p).read()
-          s = s.replace("tr.material = sm", "if not OS.has_feature(\"web\"): tr.material = sm")
-          s = s.replace("add_child(tr)", "if not OS.has_feature(\"web\"): add_child(tr)")
-          s = s.replace("world = Node2D.new(); svp.add_child(world)", "world = Node2D.new(); (self if OS.has_feature(\"web\") else svp).add_child(world)")
+          s = re.sub(r"(\s+)add_child\(tr\)", r"\1if not OS.has_feature(\"web\"): add_child(tr)", s)
+          s = re.sub(r"svp\.add_child\(world\)", r"(self if OS.has_feature(\"web\") else svp).add_child(world)", s)
           open(p, "w").write(s)
           '
-          godot --headless --path . --quit-after 2 2>&1
+          grep -n -C 3 "add_child(world)" scripts/main.gd
 
       - name: Export Godot Web Build
         run: |
