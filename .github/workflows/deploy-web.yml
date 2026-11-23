@@ -27,8 +27,10 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Auto-Fix main.gd for Web Export
+      - name: Organize Scripts and Patch main.gd for Web
         run: |
+          mkdir -p scripts
+          find . -maxdepth 3 -name "*.gd" ! -path "./scripts/*" -exec mv {} scripts/ \;
           python3 -c '
           import re
           p = "scripts/main.gd"
