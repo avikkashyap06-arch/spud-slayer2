@@ -118,8 +118,9 @@ func _ready() -> void:
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_SCALE
 	tr.size = Vector2(Cfg.W, Cfg.H)
-	var sh := Shader.new()
-	sh.code = """shader_type canvas_item;
+	if not OS.has_feature("web"):
+		var sh := Shader.new()
+		sh.code = """shader_type canvas_item;
 uniform vec2 px = vec2(427.0, 240.0);
 uniform float levels = 12.0;
 void fragment() {
@@ -139,10 +140,10 @@ void fragment() {
 	COLOR = vec4(q, 1.0);
 }
 """
-	var sm := ShaderMaterial.new()
-	sm.shader = sh
-	sm.set_shader_parameter("px", Vector2(Cfg.W / PIX, Cfg.H / PIX))
-	tr.material = sm
+		var sm := ShaderMaterial.new()
+		sm.shader = sh
+		sm.set_shader_parameter("px", Vector2(Cfg.W / PIX, Cfg.H / PIX))
+		tr.material = sm
 	add_child(tr)
 	world = Node2D.new(); svp.add_child(world)
 	arena = Arena.new(); world.add_child(arena)
@@ -209,7 +210,6 @@ func _setup_inputs() -> void:
 		var e := InputEventJoypadButton.new()
 		e.button_index = jb[k]
 		InputMap.action_add_event(k, e)
-
 # --------------------------------------------------------------- helpers used by other nodes
 func add_hazard(h: Hazard) -> void:
 	hazards.add_child(h)
@@ -592,28 +592,6 @@ func _begin_ending() -> void:
 func play_cine(id: String, cb: Callable, title: String = "", key: String = "") -> void:
 	fade = 0.0
 	white_flash = 0.0
-	cine.start(id, cb, title, key)
-	_set_state(S.CINE)
-
-func _s_cine(dt: float) -> void:
-	fade = 0.0
-	cine.tick(dt, _accept(), Input.is_action_just_pressed("ui_cancel"))
-
-func _begin_ending_real() -> void:
-	clear_all_hazards()
-	player.locked = true
-	player.iframes = 99.0
-	ending_theme_set = false
-	fade = 0.0
-	player.position = Vector2(Cfg.W * 0.5, Cfg.FLOOR)
-	player.vel = Vector2.ZERO
-	player.modulate.a = 1.0
-	_clear_boss()
-	arena.set_theme("throne", 0.0, 0, false)
-	white_flash = 1.0
-	sfx.play("boom")
-	_set_state(S.ENDING)
-
 # --------------------------------------------------------------- frame loop
 func _unhandled_input(ev: InputEvent) -> void:
 	if ev is InputEventKey and ev.pressed and not ev.echo:
@@ -942,7 +920,7 @@ func _shots() -> void:
 	for i in 10:
 		step(1.0 / 30.0)
 	await _snap("04_shrine")
-	for bi in [1, 4, 13, 20, 25, 28, 31, 37, 42, 46, 50]:
+	for bi in:
 		boss_index = bi
 		hp_lvl = 6
 		begin_intro()
@@ -1023,7 +1001,7 @@ func _drawtest() -> void:
 			continue
 		seen[key] = true
 		boss = Boss.new(); boss.setup(self, data); boss_layer.add_child(boss); boss.active = true
-		for ph in [1, 2]:
+		for ph in:
 			boss.phase = ph; boss.flash = 0.0
 			printerr("BOSS ", i, " ", key, " phase ", ph)
 			boss.tick(0.1)
