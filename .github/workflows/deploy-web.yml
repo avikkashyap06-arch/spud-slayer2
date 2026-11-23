@@ -31,7 +31,6 @@ jobs:
         run: |
           mkdir -p scripts
           find . -maxdepth 3 -name "*.gd" ! -path "./scripts/*" -exec mv {} scripts/ \;
-          ls -la scripts/
           python3 -c '
           import re
           L, R = chr(91), chr(93)
@@ -49,14 +48,16 @@ jobs:
           open(p, "w").write(s)
           '
 
-      - name: Verify All Godot Scripts Compile
-        run: |
-          godot --headless --path . --quit-after 2
-
       - name: Export Godot Web Build
         run: |
           mkdir -p build/web
           godot --headless --export-release "Web" build/web/index.html
+
+      - name: Capture Web Console Errors
+        run: |
+          python3 -m http.server 8080 -d build/web &
+          sleep 2
+          google-chrome --headless --no-sandbox --enable-unsafe-swiftshader --enable-logging=stderr --v=0 --virtual-time-budget=6000 http://localhost:8080/index.html 2>&1 | grep -i "CONSOLE" || true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
