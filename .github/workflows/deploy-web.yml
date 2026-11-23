@@ -1,4 +1,4 @@
-name: Build and Deploy Web Export
+name: Build, Test, and Deploy Web Export
 
 on:
   push:
@@ -27,10 +27,41 @@ jobs:
           use-dotnet: false
           include-templates: true
 
+      - name: Run Godot Headless Draw & Auto Tests
+        run: |
+          godot --headless --path . -- --drawtest
+          godot --headless --path . -- --autotest
+
       - name: Export Godot Web Build
         run: |
           mkdir -p build/web
           godot --headless --export-release "Web" build/web/index.html
+
+      - name: Test Web Build in Headless Browser
+        run: |
+          npx -y playwright install chromium
+          python3 -m http.server 8080 -d build/web &
+          sleep 2
+          node -e '
+            const { chromium } = require("playwright");
+            (async () => {
+              const browser = await chromium.launch({ args: ["--use-gl=angle", "--use-angle=swiftshader"] });
+              const page = await browser.newPage();
+              page.on("console", msg => console.log("PAGE LOG:", msg.type(), msg.text()));
+              page.on("pageerror", err => console.log("PAGE ERROR:", err));
+              await page.goto("http://localhost:8080/index.html", { waitUntil: "networkidle" });
+              await page.waitForTimeout(5000);
+              await page.screenshot({ path: "web_preview.png" });
+              await browser.close();
+            })();
+          '
+
+      - name: Upload Web Screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-preview-screenshot
+          path: web_preview.png
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
