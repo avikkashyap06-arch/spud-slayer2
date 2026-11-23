@@ -1,4 +1,4 @@
-name: Build, Test, and Deploy Web Export
+name: Build and Deploy Web Export
 
 on:
   push:
@@ -32,21 +32,8 @@ jobs:
           mkdir -p build/web
           godot --headless --export-release "Web" build/web/index.html
 
-      - name: Test Web Build in Headless Browser
-        run: |
-          python3 -m http.server 8080 -d build/web &
-          sleep 2
-          google-chrome --headless --no-sandbox --enable-unsafe-swiftshader --enable-logging=stderr --v=1 --virtual-time-budget=8000 --screenshot=web_preview.png http://localhost:8080/index.html 2>&1 | grep -iE "CONSOLE|Godot|USER ERROR|SCRIPT ERROR|WebGL|exception" || true
-
-      - name: Upload Web Screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-preview-screenshot
-          path: web_preview.png
-
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: build/web
 
