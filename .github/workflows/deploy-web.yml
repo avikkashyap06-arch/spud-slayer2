@@ -27,25 +27,15 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Organize Scripts and Patch for Web
+      - name: Move Root Scripts to scripts/ and Patch for Web
         run: |
           mkdir -p scripts
-          find . -maxdepth 3 -name "*.gd" ! -path "./scripts/*" -exec mv {} scripts/ \;
+          mv -f *.gd scripts/ 2>/dev/null || true
           python3 -c '
-          import re
-          L, R = chr(91), chr(93)
           p = "scripts/main.gd"
           s = open(p).read()
-          s = re.sub(r"armor_tiers:\s*Array\s*=\s*$", f"armor_tiers: Array = {L}0, 0, 0, 0, 0{R}", s, flags=re.M)
-          s = re.sub(r"armor_tiers\s*=\s*$", f"armor_tiers = {L}0, 0, 0, 0, 0{R}", s, flags=re.M)
-          s = s.replace("parts\n", f"parts{L}0{R}\n")
-          s = s.replace("split(\",\")\n", f"split(\",\"){L}0{R}\n")
-          s = s.replace("runes = [bool(r), bool(r), bool(r), bool(r)]", f"runes = {L}bool(r{L}0{R}), bool(r{L}1{R}), bool(r{L}2{R}), bool(r{L}3{R}){R}")
-          s = s.replace("parsed.get(\"armor\",)", f"parsed.get(\"armor\", {L}0, 0, 0, 0, 0{R})")
-          s = s.replace("for bi in:", f"for bi in {L}1, 4, 13, 20, 25, 28, 31, 37, 42, 46, 50{R}:")
-          s = s.replace("for ph in:", f"for ph in {L}1, 2{R}:")
           s = s.replace("tr.material = sm", "if not OS.has_feature(\"web\"): tr.material = sm")
-          s = s.replace("add_child(tr)", "tr.visible = not OS.has_feature(\"web\"); add_child(tr)")
+          s = s.replace("add_child(tr)", "if not OS.has_feature(\"web\"): add_child(tr)")
           s = s.replace("world = Node2D.new(); svp.add_child(world)", "world = Node2D.new(); (self if OS.has_feature(\"web\") else svp).add_child(world)")
           open(p, "w").write(s)
           '
