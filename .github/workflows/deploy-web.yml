@@ -36,18 +36,7 @@ jobs:
         run: |
           python3 -m http.server 8080 -d build/web &
           sleep 2
-          python3 -c '
-          from playwright.sync_api import sync_playwright
-          with sync_playwright() as p:
-              browser = p.chromium.launch(args=["--use-gl=angle", "--use-angle=swiftshader"])
-              page = browser.new_page()
-              page.on("console", lambda msg: print("PAGE LOG:", msg.type, msg.text))
-              page.on("pageerror", lambda err: print("PAGE ERROR:", err))
-              page.goto("http://localhost:8080/index.html", wait_until="networkidle")
-              page.wait_for_timeout(4000)
-              page.screenshot(path="web_preview.png")
-              browser.close()
-          '
+          google-chrome --headless --no-sandbox --disable-gpu --enable-logging=stderr --v=1 --virtual-time-budget=5000 --screenshot=web_preview.png http://localhost:8080/index.html 2>&1 | grep -iE "CONSOLE|ERROR|Godot|WebGL|SharedArrayBuffer|exception|failed" || true
 
       - name: Upload Web Screenshot
         if: always()
